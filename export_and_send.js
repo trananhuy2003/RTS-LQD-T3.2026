@@ -145,7 +145,7 @@ async function readMentionEmails(token) {
     let finalText = "";
     
     // Ghép các đoạn theo đúng thứ tự xuống dòng của template
-    if (dat0) finalText += "**" + dat0 + "**\n";           // Tiêu đề
+    if (dat0) finalText += "**" + dat0 + "**\n";           // Tiêu đề in đậm
     if (dat1) finalText += dat1 + "\n";                    // Dear WH team,
     if (dat2) finalText += dat2 + "\n\n";                  // Data chính (Em xin update...)
     if (dat3) finalText += dat3 + "\n";                    // Timeline...
@@ -160,9 +160,9 @@ async function readMentionEmails(token) {
     // Tag chốt cuối file tại mục CC
     finalText += "cc: " + footerMentions;
     
-    // --- Send text to SeaTalk ---
+    // --- Send text to SeaTalk (CHUYỂN SANG MARKDOWN TẠI ĐÂY) ---
     try {
-      const textPayload = { tag: "text", text: { content: finalText } };
+      const textPayload = { tag: "markdown", markdown: { content: finalText } };
       const tResp = await fetch(SEA_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
