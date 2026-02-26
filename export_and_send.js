@@ -22,7 +22,7 @@ const {
   USE_LOCAL_IMAGE = "0",       // set to "1" to use local file
   LOCAL_IMAGE_PATH = "/mnt/data/55c6a28d-b9e9-4247-9079-a1808fb9dc68.png", // your uploaded file path
   TEXT_SHEET_NAME = "Bot_text",      // sheet name where text cells live
-  MENTION_RANGE = "Bot_text!C11:C25"   
+  MENTION_RANGE = "Bot_text!C11:C25"   // 👈 thêm dòng này
 } = process.env;
 
 function need(v, name) { if (!v) { console.error(`Missing env: ${name}`); process.exit(1); } }
@@ -66,7 +66,7 @@ const FOOTER_MENTIONS = [
 ];
 
 function buildMentionTags(emails) {
-  return emails.map(e => `<mention-tag target="seatalk://user?email=${e}"/>`).join("");
+  return emails.map(e => `<mention-tag target="seatalk://user?email=${e}"/>`).join(" ");
 }
 
 async function readMentionEmails(token) {
@@ -108,8 +108,8 @@ async function readMentionEmails(token) {
       process.exit(1);
     }
 
-    // --- Mở rộng range lấy text (lấy từ B1 đến B8 phòng trường hợp thêm nội dung) ---
-    const textRange = `${TEXT_SHEET_NAME}!B1:B8`;
+    // --- Mở rộng range lấy text ---
+    const textRange = `${TEXT_SHEET_NAME}!B1:B10`;
 
     let textVals = [];
 
@@ -129,41 +129,35 @@ async function readMentionEmails(token) {
       console.warn("Error reading text:", e);
     }
 
-    // Map to datX
-    const dat0 = textVals[0] !== undefined ? textVals[0] : "";
-    const dat1 = textVals[1] !== undefined ? textVals[1] : "";
-    const dat2 = textVals[2] !== undefined ? textVals[2] : "";
-    const dat3 = textVals[3] !== undefined ? textVals[3] : "";
-    const dat4 = textVals[4] !== undefined ? textVals[4] : "";
-    const dat5 = textVals[5] !== undefined ? textVals[5] : "";
+    // --- Xử lý văn bản tự động thông minh ---
+    // Lọc bỏ các ô trống
+    const validTexts = textVals.filter(t => t.trim() !== "");
+    
+    // Hàm thêm 2 dấu cách vào trước ký tự xuống dòng để ép Markdown ngắt dòng
+    const formatMD = (str) => str.replace(/\r\n/g, "\n").replace(/\n/g, "  \n");
 
-    // --- Build final text exactly like the provided image template ---
+    let finalText = "";
+    
+    if (validTexts.length > 0) {
+      // Tự động lấy ô chứa chữ ĐẦU TIÊN làm tiêu đề và IN ĐẬM
+      finalText += "**" + formatMD(validTexts[0].trim()) + "**\n\n";
+
+      // Lấy các ô nội dung tiếp theo ghép vào, mỗi ô cách nhau 1 dòng trắng
+      for (let i = 1; i < validTexts.length; i++) {
+        finalText += formatMD(validTexts[i]) + "\n\n";
+      }
+    }
+
     const dynamicMentions = await readMentionEmails(token);
     const prefixMentions = buildMentionTags(dynamicMentions);
     const footerMentions = buildMentionTags(FOOTER_MENTIONS);
 
-    let finalText = "";
-    
-    // XỬ LÝ LỖI XUỐNG DÒNG CỦA MARKDOWN:
-    // Thêm 2 dấu cách ("  ") vào trước ký tự \n để ép SeaTalk ngắt dòng
-    const br = "  \n"; 
-    const formatMD = (str) => str ? str.replace(/\n/g, br) : "";
-
-    // Ghép các đoạn theo đúng thứ tự xuống dòng của template
-    if (dat0) finalText += "**" + formatMD(dat0) + "**" + br;    // Tiêu đề in đậm
-    if (dat1) finalText += formatMD(dat1) + br;                  // Dear WH team,
-    if (dat2) finalText += formatMD(dat2) + br + br;             // Data chính (Em xin update...) + cách 1 dòng
-    if (dat3) finalText += formatMD(dat3) + br;                  // Timeline...
-    
-    if (prefixMentions) finalText += prefixMentions + br + br;
-    
-    if (dat4) finalText += formatMD(dat4) + br + br;             // Nhờ WH team...
-    if (dat5) finalText += formatMD(dat5) + br + br;             // Link sheet...
+    if (prefixMentions) finalText += prefixMentions + "\n\n";
     
     // Tag chốt cuối file tại mục CC
     finalText += "cc: " + footerMentions;
     
-    // --- Send text to SeaTalk (CHUYỂN SANG MARKDOWN) ---
+    // --- Send text to SeaTalk (LƯU Ý ĐÃ ĐỔI THÀNH MARKDOWN ĐỂ NHẬN IN ĐẬM) ---
     try {
       const textPayload = { tag: "markdown", markdown: { content: finalText } };
       const tResp = await fetch(SEA_URL, {
