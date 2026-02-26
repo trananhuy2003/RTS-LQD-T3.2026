@@ -22,7 +22,7 @@ const {
   USE_LOCAL_IMAGE = "0",       // set to "1" to use local file
   LOCAL_IMAGE_PATH = "/mnt/data/55c6a28d-b9e9-4247-9079-a1808fb9dc68.png", // your uploaded file path
   TEXT_SHEET_NAME = "Bot_text",      // sheet name where text cells live
-  MENTION_RANGE = "Bot_text!C11:C25"   // 👈 thêm dòng này
+  MENTION_RANGE = "Bot_text!C11:C25"   
 } = process.env;
 
 function need(v, name) { if (!v) { console.error(`Missing env: ${name}`); process.exit(1); } }
@@ -144,23 +144,26 @@ async function readMentionEmails(token) {
 
     let finalText = "";
     
+    // XỬ LÝ LỖI XUỐNG DÒNG CỦA MARKDOWN:
+    // Thêm 2 dấu cách ("  ") vào trước ký tự \n để ép SeaTalk ngắt dòng
+    const br = "  \n"; 
+    const formatMD = (str) => str ? str.replace(/\n/g, br) : "";
+
     // Ghép các đoạn theo đúng thứ tự xuống dòng của template
-    if (dat0) finalText += "**" + dat0 + "**\n";           // Tiêu đề in đậm
-    if (dat1) finalText += dat1 + "\n";                    // Dear WH team,
-    if (dat2) finalText += dat2 + "\n\n";                  // Data chính (Em xin update...)
-    if (dat3) finalText += dat3 + "\n";                    // Timeline...
+    if (dat0) finalText += "**" + formatMD(dat0) + "**" + br;    // Tiêu đề in đậm
+    if (dat1) finalText += formatMD(dat1) + br;                  // Dear WH team,
+    if (dat2) finalText += formatMD(dat2) + br + br;             // Data chính (Em xin update...) + cách 1 dòng
+    if (dat3) finalText += formatMD(dat3) + br;                  // Timeline...
     
-    // Nếu có mention phụ nào khác, chèn ngay dưới timeline, nếu không có thì bỏ qua
-    if (prefixMentions) finalText += prefixMentions + "\n";
-    finalText += "\n";                                     // Dòng trống phân cách
+    if (prefixMentions) finalText += prefixMentions + br + br;
     
-    if (dat4) finalText += dat4 + "\n\n";                  // Nhờ WH team...
-    if (dat5) finalText += dat5 + "\n\n";                  // Link sheet...
+    if (dat4) finalText += formatMD(dat4) + br + br;             // Nhờ WH team...
+    if (dat5) finalText += formatMD(dat5) + br + br;             // Link sheet...
     
     // Tag chốt cuối file tại mục CC
     finalText += "cc: " + footerMentions;
     
-    // --- Send text to SeaTalk (CHUYỂN SANG MARKDOWN TẠI ĐÂY) ---
+    // --- Send text to SeaTalk (CHUYỂN SANG MARKDOWN) ---
     try {
       const textPayload = { tag: "markdown", markdown: { content: finalText } };
       const tResp = await fetch(SEA_URL, {
