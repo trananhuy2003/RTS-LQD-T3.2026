@@ -59,7 +59,6 @@ function parseA1Range(a1) {
   };
 }
 
-
 const FOOTER_MENTIONS = [
   "chieudan.nguyen@shopee.com",
   "tranan.huy@shopee.com",
@@ -69,6 +68,7 @@ const FOOTER_MENTIONS = [
 function buildMentionTags(emails) {
   return emails.map(e => `<mention-tag target="seatalk://user?email=${e}"/>`).join("");
 }
+
 async function readMentionEmails(token) {
   const resp = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(MENTION_RANGE)}`,
@@ -87,7 +87,6 @@ async function readMentionEmails(token) {
     .filter(r => r[0])   // chỉ cần có email
     .map(r => r[0].trim());
 }
-
 
 (async () => {
   try {
@@ -109,54 +108,57 @@ async function readMentionEmails(token) {
       process.exit(1);
     }
 
-    // --- Read specific cells from BOT sheet (A1..A15 and B1) ---
-    // We'll request BOT!A1:A15 and BOT!B1
-    const textRange = `${TEXT_SHEET_NAME}!B1:B6`;
+    // --- Mở rộng range lấy text (lấy từ B1 đến B8 phòng trường hợp thêm nội dung) ---
+    const textRange = `${TEXT_SHEET_NAME}!B1:B8`;
 
-  let textVals = [];
+    let textVals = [];
 
-try {
-  const resp = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(textRange)}`,
-    { headers: { Authorization: `Bearer ${token}` } }
-  );
+    try {
+      const resp = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(textRange)}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
 
-  if (resp.ok) {
-    const j = await resp.json();
-    textVals = (j.values || []).map(r => r[0] || "");
-  } else {
-    console.warn("Cannot read text range:", await resp.text());
-  }
-} catch (e) {
-  console.warn("Error reading text:", e);
-}
+      if (resp.ok) {
+        const j = await resp.json();
+        textVals = (j.values || []).map(r => r[0] || "");
+      } else {
+        console.warn("Cannot read text range:", await resp.text());
+      }
+    } catch (e) {
+      console.warn("Error reading text:", e);
+    }
 
+    // Map to datX
+    const dat0 = textVals[0] !== undefined ? textVals[0] : "";
+    const dat1 = textVals[1] !== undefined ? textVals[1] : "";
+    const dat2 = textVals[2] !== undefined ? textVals[2] : "";
+    const dat3 = textVals[3] !== undefined ? textVals[3] : "";
+    const dat4 = textVals[4] !== undefined ? textVals[4] : "";
+    const dat5 = textVals[5] !== undefined ? textVals[5] : "";
 
-
-    // Map to datX like your Apps Script:
- const dat0 = textVals[0];
- const dat1 = textVals[1];
- const dat2 = textVals[2];
- const dat3 = textVals[3];
- const dat4 = textVals[4];
- const dat5 = textVals[5];
-
-    // --- Build final text exactly like your Apps Script data20 ---
+    // --- Build final text exactly like the provided image template ---
     const dynamicMentions = await readMentionEmails(token);
     const prefixMentions = buildMentionTags(dynamicMentions);
     const footerMentions = buildMentionTags(FOOTER_MENTIONS);
 
-
-    // replicate spacing, bolds, newlines as original
-let finalText = "";
-finalText += "**" + dat0 + "**" + "\n";
-finalText += dat1;
-finalText += dat2 + "\n";
-finalText += dat3
-finalText += prefixMentions + "\n";
-finalText += dat4 + "\n";
-finalText += dat5 + "\n";
-finalText += footerMentions;
+    let finalText = "";
+    
+    // Ghép các đoạn theo đúng thứ tự xuống dòng của template
+    if (dat0) finalText += "**" + dat0 + "**\n";           // Tiêu đề
+    if (dat1) finalText += dat1 + "\n";                    // Dear WH team,
+    if (dat2) finalText += dat2 + "\n\n";                  // Data chính (Em xin update...)
+    if (dat3) finalText += dat3 + "\n";                    // Timeline...
+    
+    // Nếu có mention phụ nào khác, chèn ngay dưới timeline, nếu không có thì bỏ qua
+    if (prefixMentions) finalText += prefixMentions + "\n";
+    finalText += "\n";                                     // Dòng trống phân cách
+    
+    if (dat4) finalText += dat4 + "\n\n";                  // Nhờ WH team...
+    if (dat5) finalText += dat5 + "\n\n";                  // Link sheet...
+    
+    // Tag chốt cuối file tại mục CC
+    finalText += "cc: " + footerMentions;
     
     // --- Send text to SeaTalk ---
     try {
